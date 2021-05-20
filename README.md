@@ -55,7 +55,7 @@ Open up a terminal, inside the carla directory run `./CarlaUE4.sh -fps=20 -bench
 
 Open another terminal and run `CUDA_VISIBLE_DEVICES="0" python benchmark_robustness.py --suite=xing_left_right --command straight --model_path ./frozen_graphs/frozen_graph.pb --logdir ./logdir/ ` . In the logdir directory you will see the video of our agent reacting to mishap. 
 
-If you want to check that our agent drives correctly when correct command is provided, run  `CUDA_VISIBLE_DEVICES="0" python benchmark_robustness.py --suite=xing_left_right --command baseine --model_path ./frozen_graphs/frozen_graph.pb --logdir ./logdir/ `. You can also replace the suite by the original carla benchmark suites. 
+If you want to check that our agent drives correctly when correct command is provided, run  `CUDA_VISIBLE_DEVICES="0" python benchmark_robustness.py --suite=xing_left_right --command baseline --model_path ./frozen_graphs/frozen_graph.pb --logdir ./logdir/ `. You can also replace the suite by the original carla benchmark suites. 
 
 ## Results of our agent 
 
