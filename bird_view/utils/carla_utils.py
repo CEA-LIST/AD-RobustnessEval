@@ -7,8 +7,6 @@ import random
 import numpy as np
 import math
 
-# import needed due to https://github.com/pytorch/pytorch/issues/36034
-import torchvision
 import carla
 
 from carla import ColorConverter
@@ -82,7 +80,7 @@ def set_sync_mode(client, sync):
 
     settings = world.get_settings()
     settings.synchronous_mode = sync
-    settings.fixed_delta_seconds = 0.1
+    settings.fixed_delta_seconds = 0.05
 
     world.apply_settings(settings)
 
@@ -344,6 +342,7 @@ class CarlaWrapper(object):
             self, town='Town01', vehicle_name=VEHICLE_NAME, port=2000, client=None,
             col_threshold=400, big_cam=False, seed=None, respawn_peds=True, **kwargs):
         
+        #print("in init carla wraper")
         if client is None:    
             self._client = carla.Client('localhost', port)
         else:
@@ -381,7 +380,9 @@ class CarlaWrapper(object):
         self.n_pedestrians = 0
 
         self._rgb_queue = None
+        self._seg_queue = None
         self.rgb_image = None
+        self.seg_image = None
         self._big_cam_queue = None
         self.big_cam_image = None
         
@@ -491,7 +492,7 @@ class CarlaWrapper(object):
             self.n_vehicles = n_vehicles or self.n_vehicles
             self.n_pedestrians = n_pedestrians or self.n_pedestrians
             self._start_pose = self._map.get_spawn_points()[start]
-    
+            
             self.clean_up()
             self.spawn_player()
             self._setup_sensors()
@@ -544,6 +545,9 @@ class CarlaWrapper(object):
         with self._rgb_queue.mutex:
             self._rgb_queue.queue.clear()
 
+        with self._seg_queue.mutex:
+            self._seg_queue.queue.clear()
+
         self._time_start = time.time()
         self._tick = 0
         
@@ -564,10 +568,13 @@ class CarlaWrapper(object):
         # Put here for speed (get() busy polls queue).
         while self.rgb_image is None or self._rgb_queue.qsize() > 0:
             self.rgb_image = self._rgb_queue.get()
+
+        while self.seg_image is None or self._seg_queue.qsize() > 0:
+            self.seg_image = self._seg_queue.get()
         
-        if self._big_cam:
-            while self.big_cam_image is None or self._big_cam_queue.qsize() > 0:
-                self.big_cam_image = self._big_cam_queue.get()
+        # if self._big_cam:
+        #     while self.big_cam_image is None or self._big_cam_queue.qsize() > 0:
+        #         self.big_cam_image = self._big_cam_queue.get()
 
         return True
 
@@ -577,14 +584,15 @@ class CarlaWrapper(object):
         # print ("%.3f, %.3f"%(self.rgb_image.timestamp, self._world.get_snapshot().timestamp.elapsed_seconds))
         result.update({
             'rgb': carla_img_to_np(self.rgb_image),
+            'seg':  carla_img_to_np(self.seg_image),
             'birdview': get_birdview(result),
             'collided': self.collided
             })
 
-        if self._big_cam:
-            result.update({
-                'big_cam': carla_img_to_np(self.big_cam_image),
-            })
+        # if self._big_cam:
+        #     result.update({
+        #         'big_cam': carla_img_to_np(self.big_cam_image),
+        #     })
 
         return result
 
@@ -629,10 +637,14 @@ class CarlaWrapper(object):
         if self._rgb_queue:
             with self._rgb_queue.mutex:
                 self._rgb_queue.queue.clear()
+
+        if self._seg_queue:
+            with self._seg_queue.mutex:
+                self._seg_queue.queue.clear()
         
-        if self._big_cam_queue:
-            with self._big_cam_queue.mutex:
-                self._big_cam_queue.queue.clear()
+        # if self._big_cam_queue:
+        #     with self._big_cam_queue.mutex:
+        #         self._big_cam_queue.queue.clear()
     
     @property
     def pedestrians(self):
@@ -650,30 +662,61 @@ class CarlaWrapper(object):
         # Camera.
         self._rgb_queue = queue.Queue()
 
-        if self._big_cam:
-            self._big_cam_queue = queue.Queue()
-            rgb_camera_bp = self._blueprints.find('sensor.camera.rgb')
-            rgb_camera_bp.set_attribute('image_size_x', '800')
-            rgb_camera_bp.set_attribute('image_size_y', '600')
-            rgb_camera_bp.set_attribute('fov', '90')
-            big_camera = self._world.spawn_actor(
-                rgb_camera_bp,
-                carla.Transform(carla.Location(x=1.0, z=1.4), carla.Rotation(pitch=0)),
-                attach_to=self._player)
-            big_camera.listen(self._big_cam_queue.put)
-            self._actor_dict['sensor'].append(big_camera)
+        # if self._big_cam:
+        #     print("big cam !")
+        #     self._big_cam_queue = queue.Queue()
+        #     rgb_camera_bp = self._blueprints.find('sensor.camera.rgb')
+        #     rgb_camera_bp.set_attribute('image_size_x', '800')
+        #     rgb_camera_bp.set_attribute('image_size_y', '600')
+        #     rgb_camera_bp.set_attribute('fov', '90')
+        #     big_camera = self._world.spawn_actor(
+        #         rgb_camera_bp,
+        #         carla.Transform(carla.Location(x=1.0, z=1.4), carla.Rotation(pitch=0)),
+        #         attach_to=self._player)
+        #     big_camera.listen(self._big_cam_queue.put)
+        #     self._actor_dict['sensor'].append(big_camera)
             
         rgb_camera_bp = self._blueprints.find('sensor.camera.rgb')
-        rgb_camera_bp.set_attribute('image_size_x', '384')
-        rgb_camera_bp.set_attribute('image_size_y', '160')
-        rgb_camera_bp.set_attribute('fov', '90')
+        if self._big_cam:
+            #print("big cam !")
+            rgb_camera_bp.set_attribute('image_size_x', '800')
+            rgb_camera_bp.set_attribute('image_size_y', '600')
+        else:
+            #print("small cam !")
+            rgb_camera_bp.set_attribute('image_size_x', '256')
+            rgb_camera_bp.set_attribute('image_size_y', '192')
+            
+        rgb_camera_bp.set_attribute('fov', '100')
         rgb_camera = self._world.spawn_actor(
             rgb_camera_bp,
-            carla.Transform(carla.Location(x=2.0, z=1.4), carla.Rotation(pitch=0)),
+            carla.Transform(carla.Location(x=0.7, z=1.6), carla.Rotation(pitch=0)),
+            #carla.Transform(carla.Location(x=0.0, z=1.6), carla.Rotation(pitch=0)),
             attach_to=self._player)
 
         rgb_camera.listen(self._rgb_queue.put)
         self._actor_dict['sensor'].append(rgb_camera)
+
+
+        self._seg_queue = queue.Queue()
+
+        seg_camera_bp = self._blueprints.find('sensor.camera.semantic_segmentation')
+        if self._big_cam:
+            #print("big cam !")
+            seg_camera_bp.set_attribute('image_size_x', '800')
+            seg_camera_bp.set_attribute('image_size_y', '600')
+        else:
+            #print("small cam !")
+            seg_camera_bp.set_attribute('image_size_x', '256')
+            seg_camera_bp.set_attribute('image_size_y', '192')
+            
+        seg_camera_bp.set_attribute('fov', '100')
+        seg_camera = self._world.spawn_actor(
+            seg_camera_bp,
+            carla.Transform(carla.Location(x=0.7, z=1.6), carla.Rotation(pitch=0)),
+            attach_to=self._player)
+
+        seg_camera.listen(self._seg_queue.put)
+        self._actor_dict['sensor'].append(seg_camera)
         
         
 

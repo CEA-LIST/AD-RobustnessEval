@@ -15,7 +15,7 @@ from enum import Enum
 import carla
 import os.path as osp
 import numpy as np
-from agents.tools.misc import is_within_distance_ahead, compute_magnitude_angle, compute_yaw_difference
+from PythonAPI.agents.tools.misc import is_within_distance_ahead, compute_magnitude_angle, compute_yaw_difference
 
 from skimage.io import imread
 

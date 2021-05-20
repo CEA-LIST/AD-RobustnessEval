@@ -2,9 +2,11 @@ import json
 
 from collections import defaultdict
 
+
 from . import video_maker
 from . import gif_maker
 from . import saver
+
 
 show_image = video_maker.show
 

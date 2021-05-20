@@ -13,8 +13,8 @@ from collections import deque
 import random
 
 import carla
-from agents.navigation.controller import VehiclePIDController
-from agents.tools.misc import distance_vehicle, draw_waypoints
+from PythonAPI.agents.navigation.controller import VehiclePIDController
+from PythonAPI.agents.tools.misc import distance_vehicle, draw_waypoints
 
 import numpy as np
 
@@ -89,7 +89,7 @@ class LocalPlanner(object):
         :return:
         """
         # default params
-        self._dt = 1.0 / 10.0
+        self._dt = 1.0 / 20.0
         self._target_speed = 20.0  # Km/h
         self._sampling_radius = self._target_speed * 1 / 3.6  # 1 seconds horizon
         self._min_distance = self._sampling_radius * self.MIN_DISTANCE_PERCENTAGE
@@ -289,22 +289,26 @@ def _compute_connection(current_waypoint, next_waypoint):
 
 
 class LocalPlannerNew(object):
-    def __init__(self, vehicle, resolution=15, threshold_before=2.5, threshold_after=5.0):
-        from agents.navigation.global_route_planner import GlobalRoutePlanner
-        from agents.navigation.global_route_planner_dao import GlobalRoutePlannerDAO
+    def __init__(self, vehicle, resolution=15, threshold_before=2.5, threshold_after=5.0, apply_thresh=True):
+        from PythonAPI.agents.navigation.global_route_planner import GlobalRoutePlanner
+        from PythonAPI.agents.navigation.global_route_planner_dao import GlobalRoutePlannerDAO
 
         # Max skip avoids misplanning when route includes both lanes.
         self._max_skip = 20
         self._threshold_before = threshold_before
         self._threshold_after = threshold_after
+        self.apply_thresh = apply_thresh
 
         self._vehicle = vehicle
         self._map = vehicle.get_world().get_map()
+        self._world = vehicle.get_world()
         self._grp = GlobalRoutePlanner(GlobalRoutePlannerDAO(self._map, resolution))
         self._grp.setup()
 
+
         self._route = None
         self._waypoints_queue = deque(maxlen=20000)
+        self._wp = []
 
         self.target = (None, None)
         self.checkpoint = (None, None)
@@ -321,7 +325,9 @@ class LocalPlannerNew(object):
         prev = None
 
         for node in self._route:
+            #print(node)
             self._waypoints_queue.append(node)
+            self._wp.append(node)
 
             cur = node[0].transform.location
 
@@ -338,39 +344,62 @@ class LocalPlannerNew(object):
                 self._map.get_waypoint(self._vehicle.get_location()),
                 RoadOption.LANEFOLLOW)
 
+
     def run_step(self):
         assert self._route is not None
 
+        # print('--------------- in run step !')
+        # for i, (waypoint, _) in enumerate(self._route):
+        #     self._world.debug.draw_point(waypoint.transform.location, life_time = 10000)
+
+        #print("self._waypoints_queue = ", self._waypoints_queue)
+
         u = self._vehicle.get_transform().location
+        # print("location = ", u)
         max_index = -1
 
-        for i, (node, command) in enumerate(self._waypoints_queue):
-            if i > self._max_skip:
-                break
+        if self.apply_thresh : 
+            for i, (node, command) in enumerate(self._waypoints_queue):
+                if i > self._max_skip:
+                    break
 
-            v = node.transform.location
-            distance = np.sqrt((u.x - v.x) ** 2 + (u.y - v.y) ** 2)
+                v = node.transform.location
+                distance = np.sqrt((u.x - v.x) ** 2 + (u.y - v.y) ** 2)
 
-            if int(self.checkpoint[1]) == 4 and int(command) != 4:
-                threshold = self._threshold_before
-            else:
-                threshold = self._threshold_after
+                if int(self.checkpoint[1].value) == 4 and int(command.value) != 4:
+                    threshold = self._threshold_before
+                else:
+                    threshold = self._threshold_after
 
-            if distance < threshold:
-                self.checkpoint = (node, command)
-                max_index = i
+                if distance < threshold:
+                    self.checkpoint = (node, command)
+                    max_index = i
 
-        for i in range(max_index + 1):
-            if self.distances:
-                self.distance_to_goal -= self.distances[0]
-                self.distances.popleft()
+            for i in range(max_index + 1):
+                if self.distances:
+                    self.distance_to_goal -= self.distances[0]
+                    self.distances.popleft()
+                self._waypoints_queue.popleft()
+           
 
-            self._waypoints_queue.popleft()
+            if len(self._waypoints_queue) > 0:
+                self.target = self._waypoints_queue[0]
 
-        if len(self._waypoints_queue) > 0:
-            self.target = self._waypoints_queue[0]
+        else: 
 
-    def calculate_timeout(self, fps=10):
+            distance = float("inf")
+            for (node, command) in self._wp:
+                v = node.transform.location
+                dist = np.sqrt((u.x - v.x) ** 2 + (u.y - v.y) ** 2)
+                #print('dist = ', dist)
+                if dist < distance:
+                    distance = dist
+                    self.checkpoint = (node,command)
+            
+
+        
+
+    def calculate_timeout(self, fps=20):
         _numpy = lambda p: np.array([p.transform.location.x, p.transform.location.y])
 
         distance = 0
@@ -394,7 +423,7 @@ class LocalPlannerOld(object):
         from agents.navigation.global_route_planner import GlobalRoutePlanner
         from agents.navigation.global_route_planner_dao import GlobalRoutePlannerDAO
 
-        self._dt = 1.0 / 10.0
+        self._dt = 1.0 / 20.0
         self._target_speed = 20.0  # Km/h
         self._sampling_radius = self._target_speed * 1 / 3.6  # 1 seconds horizon
         self._min_distance = self._sampling_radius * 0.9
@@ -416,11 +445,13 @@ class LocalPlannerOld(object):
         self._waypoints_queue.clear()
 
         self._route = self._grp.trace_route(start, target)
+
         self.distance_to_goal = 0.0
 
         prev = None
 
         for node in self._route:
+            
             self._waypoints_queue.append(node)
 
             cur = node[0].transform.location
