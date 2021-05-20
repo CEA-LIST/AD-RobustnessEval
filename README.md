@@ -8,7 +8,7 @@ Our code is a fork of the repository [**Learning by Cheating**](https://github.c
 Our benchmark adds 3 types of crossing, where one of the direction is not possible, and records the reaction of the agent when it is still told to go in that direction. 
 
 <p align="center">
-<img src="https://github.com/Florence-C/LearningByCheating_EvalutingRobustness/blob/master/figs/img3.png" width="500"/>
+<img src="https://github.com/CEA-LIST/AD-RobustnessEval/blob/master/figs/img3.png" width="500"/>
 </p>
 
 Training and inference are performed with Carla 0.9.6
@@ -62,7 +62,7 @@ If you want to check that our agent drives correctly when correct command is pro
 Our agent was trained with end-to-end reinforcement learning from image input. An auxiliary task, namely the prediction of semantic segmentation, was added during training to improve performance and robustness. Below is shown the results of our agent on our robustness benchmark. 
 
 <p align="center">
-<img src="https://github.com/Florence-C/LearningByCheating_EvalutingRobustness/blob/master/figs/table.png" width="1000"/>
+<img src="https://github.com/CEA-LIST/AD-RobustnessEval/blob/master/figs/table.png" width="1000"/>
 </p>
 
 ## Reference
