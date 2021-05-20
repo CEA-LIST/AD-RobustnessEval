@@ -21,7 +21,7 @@ def _paint(observations, control, diagnostic, debug, env, show=False):
     CROP_SIZE = 192
     X = 176
     Y = 192 // 2
-    R = 2
+    R = 3
 
     birdview = cu.visualize_birdview(observations['birdview'])
     birdview = crop_birdview(birdview)
@@ -31,6 +31,9 @@ def _paint(observations, control, diagnostic, debug, env, show=False):
         rgb = np.uint8(observations['rgb']).copy()
     else:
         canvas = np.uint8(observations['rgb']).copy()
+
+    #print(canvas.shape)
+    canvas = canvas[32:160,:,:]
 
     def _stick_together(a, b, axis=1):
 
@@ -73,7 +76,8 @@ def _paint(observations, control, diagnostic, debug, env, show=False):
     if 'big_cam' in observations:
         fontsize = 0.8
     else:
-        fontsize = 0.4
+        # fontsize = 0.4
+        fontsize = 0.33
 
     _write('Command: ' + _command, 1, 0, fontsize=fontsize)
     _write('Velocity: %.1f' % np.linalg.norm(observations['velocity']), 2, 0, fontsize=fontsize)
@@ -90,45 +94,65 @@ def _paint(observations, control, diagnostic, debug, env, show=False):
     _write('Time: %d' % env._tick, 5, 6, fontsize=fontsize)
     _write('FPS: %.2f' % (env._tick / (diagnostic['wall'])), 6, 6, fontsize=fontsize)
 
-    for x, y in debug.get('locations', []):
-        x = int(X - x / 2.0 * CROP_SIZE)
-        y = int(Y + y / 2.0 * CROP_SIZE)
+    # x_loc, y_loc = debug['locations']
+    # x_loc = int(X - x_loc / 2.0 * CROP_SIZE)
+    # y_loc = int(Y + y_loc / 2.0 * CROP_SIZE)
 
-        S = R // 2
-        birdview[x-S:x+S+1,y-S:y+S+1] = RED
+    # S = R // 2
+    # birdview[x_loc-S:x_loc+S+1,y_loc-S:y_loc+S+1] = RED
 
-    for x, y in debug.get('locations_world', []):
-        x = int(X - x * 4)
-        y = int(Y + y * 4)
+    # for x, y in debug.get('locations', []):
+    #     x = int(X - x / 2.0 * CROP_SIZE)
+    #     y = int(Y + y / 2.0 * CROP_SIZE)
 
-        S = R // 2
-        birdview[x-S:x+S+1,y-S:y+S+1] = RED
+    #     S = R // 2
+    #     birdview[x-S:x+S+1,y-S:y+S+1] = RED
+
+    # for x, y in debug.get('locations_world', []):
+    #     x = int(X - x * 4)
+    #     y = int(Y + y * 4)
+
+    #     S = R // 2
+    #     birdview[x-S:x+S+1,y-S:y+S+1] = RED
     
-    for x, y in debug.get('locations_birdview', []):
-        S = R // 2
-        birdview[x-S:x+S+1,y-S:y+S+1] = RED       
+    # for x, y in debug.get('locations_birdview', []):
+    #     S = R // 2
+    #     birdview[x-S:x+S+1,y-S:y+S+1] = RED       
  
-    for x, y in debug.get('locations_pixel', []):
-        S = R // 2
-        if 'big_cam' in observations:
-            rgb[y-S:y+S+1,x-S:x+S+1] = RED
-        else:
-            canvas[y-S:y+S+1,x-S:x+S+1] = RED
+    # for x, y in debug.get('locations_pixel', []):
+    #     S = R // 2
+    #     if 'big_cam' in observations:
+    #         rgb[y-S:y+S+1,x-S:x+S+1] = RED
+    #     else:
+    #         canvas[y-S:y+S+1,x-S:x+S+1] = RED
         
-    for x, y in debug.get('curve', []):
-        x = int(X - x * 4)
-        y = int(Y + y * 4)
+    # for x, y in debug.get('curve', []):
+    #     x = int(X - x * 4)
+    #     y = int(Y + y * 4)
 
-        try:
-            birdview[x,y] = [155, 0, 155]
-        except:
-            pass
+    #     try:
+    #         birdview[x,y] = [155, 0, 155]
+    #     except:
+    #         pass
 
-    if 'target' in debug:
-        x, y = debug['target'][:2]
-        x = int(X - x * 4)
-        y = int(Y + y * 4)
-        birdview[x-R:x+R+1,y-R:y+R+1] = [0, 155, 155]
+    # x_loc, y_loc = debug['locations']
+    # print(x_loc,y_loc)
+    # xl = int(x_loc/100)
+    # yl = int(y_loc/100)
+
+    # birdview[xl-R:xl+R+1,yl-R:yl+R+1] = [0, 155, 155]
+
+    
+    birdview[159-R:159+R+1,96-R:96+R+1] = [0, 255, 255]
+
+    # if 'target' in debug:
+    #     x, y = debug['target'][:2]
+    #     #print("x,y = ", x,y)
+    #     x = int(X - x * 4)
+    #     y = int(Y + y * 4)
+    #     birdview[x-R:x+R+1,y-R:y+R+1] = [0, 255, 155]
+    #else:
+    #    print("no debug in target")
 
     ox, oy = observations['orientation']
     rot = np.array([
@@ -163,16 +187,20 @@ def _paint(observations, control, diagnostic, debug, env, show=False):
     bzu.add_to_video(full)
 
 
-def run_single(env, weather, start, target, agent_maker, seed, autopilot, show=False):
+def run_single(env, weather, start, target, agent_maker, seed, autopilot, show=False, command="baseline"):
     # HACK: deterministic vehicle spawns.
     env.seed = seed
     env.init(start=start, target=target, weather=cu.PRESET_WEATHERS[weather])
+    ep_name = str(start) + '_' + str(target) + "_w" + str(weather)
+    
 
     if not autopilot:
-        agent = agent_maker()
+        agent = agent_maker(ep_name)
     else:
         agent = agent_maker(env._player, resolution=1, threshold=7.5)
         agent.set_route(env._start_pose.location, env._target_pose.location)
+
+    #agent_for_debug = agent_maker_for_debug()
 
     diagnostics = list()
     result = {
@@ -186,6 +214,19 @@ def run_single(env, weather, start, target, agent_maker, seed, autopilot, show=F
 
     while env.tick():
         observations = env.get_observations()
+
+        if command == "followlane": 
+            observations["command"]=4
+        elif command == "left":
+            if observations["command"]!=4 : 
+                observations["command"]=1 
+        elif command == "right":
+            if observations["command"]!=4 : 
+                observations["command"]=2 
+        elif command == "straight":
+            if observations["command"]!=4 : 
+                observations["command"]=3 
+
         control = agent.run_step(observations)
         diagnostic = env.apply_control(control)
 
@@ -200,15 +241,17 @@ def run_single(env, weather, start, target, agent_maker, seed, autopilot, show=F
             result['total_lights'] = env.traffic_tracker.total_lights
             result['collided'] = env.collided
             result['t'] = env._tick
+            result['mean_dtc'] = env.dtc / env._tick
             break
 
     return result, diagnostics
 
 
-def run_benchmark(agent_maker, env, benchmark_dir, seed, autopilot, resume, max_run=5, show=False):
+def run_benchmark(agent_maker, env, benchmark_dir, seed, autopilot, resume, max_run=5, show=False, command='baseline'):
     """
     benchmark_dir must be an instance of pathlib.Path
     """
+    #print('in run_benchmark')
     summary_csv = benchmark_dir / 'summary.csv'
     diagnostics_dir = benchmark_dir / 'diagnostics'
     diagnostics_dir.mkdir(parents=True, exist_ok=True)
@@ -224,6 +267,7 @@ def run_benchmark(agent_maker, env, benchmark_dir, seed, autopilot, resume, max_
     num_run = 0
 
     for weather, (start, target), run_name in tqdm.tqdm(env.all_tasks, total=total):
+
         if resume and len(summary) > 0 and ((summary['start'] == start) \
                        & (summary['target'] == target) \
                        & (summary['weather'] == weather)).any():
@@ -235,7 +279,7 @@ def run_benchmark(agent_maker, env, benchmark_dir, seed, autopilot, resume, max_
 
         bzu.init_video(save_dir=str(benchmark_dir / 'videos'), save_path=run_name)
 
-        result, diagnostics = run_single(env, weather, start, target, agent_maker, seed, autopilot, show=show)
+        result, diagnostics = run_single(env, weather, start, target, agent_maker, seed, autopilot, show=show, command=command)
 
         summary = summary.append(result, ignore_index=True)
 

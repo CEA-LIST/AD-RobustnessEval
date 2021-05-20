@@ -5,8 +5,9 @@ import queue
 import numpy as np
 
 import carla
+import math
 
-from agents.navigation.local_planner import RoadOption, LocalPlannerNew, LocalPlannerOld
+from PythonAPI.agents.navigation.local_planner import RoadOption, LocalPlannerNew, LocalPlannerOld
 
 from .base_suite import BaseSuite
 
@@ -22,7 +23,7 @@ def from_file(poses_txt):
 class PointGoalSuite(BaseSuite):
     def __init__(
             self, success_dist=5.0, col_is_failure=False,
-            viz_camera=False, planner='new', poses_txt='', **kwargs):
+            viz_camera=False, planner='new', poses_txt='', apply_thresh=True, threshold=[15,5],**kwargs):
         super().__init__(**kwargs)
 
         self.success_dist = success_dist
@@ -38,19 +39,26 @@ class PointGoalSuite(BaseSuite):
         self.viz_camera = viz_camera
         self._viz_queue = None
 
+        self.apply_thresh = apply_thresh
+        self.threshold = threshold
+
+
     def init(self, target=1, **kwargs):
         self._target_pose = self._map.get_spawn_points()[target]
+
+        self.dtc = 0
 
         super().init(**kwargs)
 
     def ready(self):
-        # print (self.planner)
+
         if self.planner == 'new':
-            self._local_planner = LocalPlannerNew(self._player, 2.5, 9.0, 1.5)
+            self._local_planner = LocalPlannerNew(self._player, 1.0, self.threshold[0], self.threshold[1], self.apply_thresh)
         else:
             self._local_planner = LocalPlannerOld(self._player)
 
         self._local_planner.set_route(self._start_pose.location, self._target_pose.location)
+
         self._timeout = self._local_planner.calculate_timeout()
 
         return super().ready()
@@ -61,16 +69,19 @@ class PointGoalSuite(BaseSuite):
         self._local_planner.run_step()
         self.command = self._local_planner.checkpoint[1]
         self.node = self._local_planner.checkpoint[0].transform.location
-        self._next = self._local_planner.target[0].transform.location
+        #self._next = self._local_planner.target[0].transform.location
 
         return result
 
     def get_observations(self):
+
+        loc = self._player.get_location()
         result = dict()
         result.update(super().get_observations())
-        result['command'] = int(self.command)
+        result['command'] = int(self.command.value)
         result['node'] = np.array([self.node.x, self.node.y])
-        result['next'] = np.array([self._next.x, self._next.y])
+        #result['next'] = np.array([self._next.x, self._next.y])
+        result['next'] = 0
 
         return result
 
@@ -124,6 +135,19 @@ class PointGoalSuite(BaseSuite):
         velocity = self._player.get_velocity()
         speed = np.linalg.norm([velocity.x, velocity.y, velocity.z])
 
+
+        # # position_waypoint = current_waypoint.transform.location
+        # # position_car = self.ego_vehicle.get_location()
+        # # self._local_planner.checkpoint[0].transform.location
+        # # vector_vehicle = self.ego_vehicle.get_transform().get_forward_vector()
+        vector_road = self._local_planner.checkpoint[0].transform.get_forward_vector()
+        vec_wp_car = [location.x - self.node.x, location.y - self.node.y, 0]
+        vec_road = [vector_road.x, vector_road.y,0]
+        cross_pd = np.cross(vec_wp_car, vec_road)
+        distance_to_road = math.sqrt(cross_pd[0]**2 + cross_pd[1]**2+ cross_pd[2]**2)/math.sqrt(vector_road.x**2 + vector_road.y**2)
+        self.dtc += distance_to_road
+        #distance_to_road = 0
+
         info = {
                 'x': location.x,
                 'y': location.y,
@@ -134,7 +158,8 @@ class PointGoalSuite(BaseSuite):
                 'collided': self.collided,
                 'invaded': self.invaded,
                 'distance_to_goal': self._local_planner.distance_to_goal,
-                'viz_img': self._viz_queue.get() if self.viz_camera else None
+                'viz_img': self._viz_queue.get() if self.viz_camera else None, 
+                'dtc': distance_to_road
                 }
 
         info.update(result)

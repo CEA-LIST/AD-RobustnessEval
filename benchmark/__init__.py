@@ -34,18 +34,41 @@ def _add(suite_name, *args, **kwargs):
         suite = 'full'
     elif 'NoCrash' in suite_name:
         suite = 'nocrash'
+    elif 'Debug' in suite_name:
+        suite='debug'
+    elif 'Xing' in suite_name:
+        suite='xing'
     else:
         raise Exception('No suite specified: %s.' % suite_name)
 
     kwargs['town'] = town
-    kwargs['poses_txt'] = '%s/%s/%s_%s.txt' % (benchmark, VERSION, suite, town)
-    kwargs['col_is_failure'] = 'NoCrash' in suite_name
+
+    if 'left_right' in suite_name: 
+        kwargs['poses_txt']='one_xing/left_right_Town01.txt'
+    elif 'straight_right' in suite_name:
+        kwargs['poses_txt'] = 'one_xing/straight_right_Town01.txt'
+    elif 'straight_left' in suite_name:
+        kwargs['poses_txt'] = 'one_xing/straight_left_Town01.txt'
+    else: 
+        kwargs['poses_txt'] = '%s/%s/%s_%s.txt' % (benchmark, VERSION, suite, town)
+    #kwargs['col_is_failure'] = 'NoCrash' in suite_name
+    kwargs['col_is_failure'] = True
+
+    #kwargs['poses_txt'] = 'one_turn/straight_right_Town01.txt'
 
     _suites[suite_name] = (args, kwargs)
 
 
 ## ============= Register Suites ============ ##
-# _add('DebugTown01-v0', DebugSuite, n_vehicles=10, viz_camera=True)
+
+_add('TurnTown01-v4', n_vehicles=0, weathers=[1])
+
+_add('Town01_Xing_left_right', n_vehicles=0, weathers=[1])
+_add('Town01_Xing_straight_right', n_vehicles=0, weathers=[1])
+_add('Town01_Xing_straight_left', n_vehicles=0, weathers=[1])
+
+
+_add('DebugTown01-v0', n_vehicles=0, weathers=WEATHER_1)
 # _add('FullTown01-v0', n_vehicles=0, viz_camera=True)
 # _add('FullTown02-v0', n_vehicles=0, viz_camera=True)
 
@@ -148,14 +171,39 @@ _add('FullTown02-noweather', n_vehicles=15, weathers=[1])
 
 
 _aliases = {
+        'debug' : ['DebugTown01-v0'],
         'town1': [
             'FullTown01-v1', 'FullTown01-v2', 'FullTown01-v3', 'FullTown01-v4',
             'StraightTown01-v1', 'StraightTown01-v2',
             'TurnTown01-v1', 'TurnTown01-v2'],
+        'town1_s': [
+            'StraightTown01-v1', 'StraightTown01-v2'
+            ],
+        'town1_turn1': [
+            'TurnTown01-v4'],
+        'xing_left_right':['Town01_Xing_left_right'], 
+        'xing_straight_right':['Town01_Xing_straight_right'],
+        'xing_straight_left':['Town01_Xing_straight_left'],
+        'town1_t': [
+            'TurnTown01-v1', 'TurnTown01-v2'],
+        'town1_fnp': [
+            'FullTown01-v1', 'FullTown01-v2'],
+        'town1_f': [
+            'FullTown01-v1', 'FullTown01-v2', 'FullTown01-v3', 'FullTown01-v4'],
         'town2': [
             'FullTown02-v1', 'FullTown02-v2', 'FullTown02-v3', 'FullTown02-v4',
             'StraightTown02-v1', 'StraightTown02-v2',
             'TurnTown02-v1', 'TurnTown02-v2'],
+        'town2_s': [
+            'StraightTown02-v1', 'StraightTown02-v2'],
+        'town2_t': [
+           'TurnTown02-v1', 'TurnTown02-v2'],
+        'town2_f': [
+            'FullTown02-v1', 'FullTown02-v2', 'FullTown02-v3', 'FullTown02-v4'],
+        'town2_fwp': [
+            'FullTown02-v3', 'FullTown02-v4'],
+        'town2_fnp': [
+            'FullTown02-v1', 'FullTown02-v2'],
         'town1p': [
             'FullTown01-v5', 'FullTown01-v6',
             'StraightTown01-v3', 'TurnTown01-v3',
@@ -200,7 +248,7 @@ _aliases['all'] = _aliases['town1'] + _aliases['town2']
 ALL_SUITES = list(_suites.keys()) + list(_aliases.keys())
 
 
-def make_suite(suite_name, port=2000, big_cam=False, planner='new', client=None):
+def make_suite(suite_name, port=2000, big_cam=False, planner='new', client=None, apply_thresh=True, threshold=[15,5]):
     assert suite_name in _suites, '%s is not registered!'%suite_name
 
     args, kwargs = _suites[suite_name]
@@ -208,6 +256,8 @@ def make_suite(suite_name, port=2000, big_cam=False, planner='new', client=None)
     kwargs['big_cam'] = big_cam
     kwargs['planner'] = planner
     kwargs['client'] = client
+    kwargs['apply_thresh']=apply_thresh
+    kwargs['threshold']=threshold
 
     return PointGoalSuite(*args, **kwargs)
 

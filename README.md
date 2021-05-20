@@ -3,7 +3,7 @@
 This repository includes our benchmark and frozen graph of our paper accepted at IV21. Details can be found in the paper [link to paper coming soon]. 
 
 This benchmark is an extension of the original Carla benchmark and evaluates the reaction of our agent when an inccorect driving command is provided. 
-Our code is based on the one from the repository [**Learning by Cheating**](https://github.com/dianchen96/LearningByCheating) from which we kept the code related to agent evaluation. 
+Our code is a fork of the repository [**Learning by Cheating**](https://github.com/dianchen96/LearningByCheating) from which we kept the code related to agent evaluation. 
 
 Our benchmark adds 3 types of crossing, where one of the direction is not possible, and records the reaction of the agent when it is still told to go in that direction. 
 
@@ -21,8 +21,8 @@ We provide a script to install every dependencies required and run our benchmark
 ```bash
 
 # Download Repo
-git clone git@github.com:Florence-C/LearningByCheating_EvalutingRobustness.git
-cd LearningByCheating_EvalutingRobustness/
+git clone git@github.com:CEA-LIST/AD-RobustnessEval.git
+cd AD-RobustnessEval/
 
 # Create virtual environement 
 python3.7 -m venv --system-site-packages ~/carla_env
@@ -73,7 +73,7 @@ If you find this repo to be useful in your research, please consider citing our 
 
 ## License
 This repo is released under the MIT License (please refer to the LICENSE file for details).
-Most of the code come from the repository 
+Most of the code comes from the repository 
 [**Learning by Cheating**](https://github.com/dianchen96/LearningByCheating)
 which is under MIT license.
 Part of the PythonAPI and the map rendering code is borrowed from the official 
